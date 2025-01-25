@@ -30,7 +30,7 @@ def load_image(name):
 
 def init_game():
     pygame.init()
-    screen = pygame.display.set_mode((800, 600))
+    screen = pygame.display.set_mode((650, 650))
     pygame.display.set_caption("Light and Shadow")
     return screen
 
@@ -38,10 +38,11 @@ def init_game():
 def load_resources():
     sprite_sheet = load_image("textures/Idel Animation 48x48.png")
     player_sprite = AnimatedSprite(sprite_sheet, 10, 1, 48, 48)
-    platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
+    a = platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
     return {
         "player": player_sprite,
-        "platform": pygame.transform.scale(platform_image, (150, 150))
+        "platform": pygame.transform.scale(platform_image, (150, 150)),
+        "a": pygame.transform.scale(a, (650, 650))
     }
 
 
@@ -69,6 +70,7 @@ def update_player(player, velocity_x, velocity_y, platforms, gravity, jump_force
 
 def draw_objects(screen, resources, player, platforms):
     screen.fill((255, 255, 255))
+    screen.blit(resources["a"], (0,0))
     for platform in platforms:
         screen.blit(resources["platform"], (platform.x, platform.y))
     screen.blit(player.image, player.rect.topleft)
@@ -87,10 +89,10 @@ def game_loop(screen, resources):
     ]
 
     gravity = 0.8
-    jump_force = -15
+    jump_force = -11
     velocity_x = 0
     velocity_y = 0
-    move_speed = 5
+    move_speed = 3
     on_ground = False
 
     running = True
