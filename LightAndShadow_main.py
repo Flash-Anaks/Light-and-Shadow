@@ -1,32 +1,10 @@
 import pygame
+import pyganim
 
-
-class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
-        super().__init__()
-        self.frames = []
-        self.cut_sheet(sheet, columns, rows)
-        self.cur_frame = 0
-        self.image = self.frames[self.cur_frame]
-        self.rect = self.image.get_rect(topleft=(x, y))
-
-    def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
-
-    def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
-
+TIMER = 60
 
 def load_image(name):
     return pygame.image.load(name).convert_alpha()
-
 
 def init_game():
     pygame.init()
@@ -34,94 +12,133 @@ def init_game():
     pygame.display.set_caption("Light and Shadow")
     return screen
 
-
 def load_resources():
-    sprite_sheet = load_image("textures/Idel Animation 48x48.png")
-    player_sprite = AnimatedSprite(sprite_sheet, 10, 1, 48, 48)
-    a = platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
-    return {
-        "player": player_sprite,
-        "platform": pygame.transform.scale(platform_image, (150, 150)),
-        "a": pygame.transform.scale(a, (650, 650))
+    idle_sheet = load_image("textures/Idel Animation 48x48.png")
+    run_sheet = load_image("textures/Run Animation 48x48.png")
+    jump_sheet = load_image("textures/Jump Animation 48x48.png")
+
+    def create_animation(sheet, columns, rows, duration=100, flip_x=False):
+        """Разрезает спрайт-лист и создаёт анимацию"""
+        frames = []
+        frame_width = sheet.get_width() // columns
+        frame_height = sheet.get_height() // rows
+        for i in range(columns):
+            frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
+            if flip_x:
+                frame = pygame.transform.flip(frame, True, False)
+            frames.append((frame, duration))
+        return pyganim.PygAnimation(frames)
+
+    player_sprites = {
+        "idle": create_animation(idle_sheet, 10, 1),
+        "run_right": create_animation(run_sheet, 8, 1),
+        "run_left": create_animation(run_sheet, 8, 1, flip_x=True),
+        "jump_right": create_animation(jump_sheet, 6, 1, duration=140),
+        "jump_left": create_animation(jump_sheet, 6, 1, duration=140, flip_x=True)
     }
 
+    for anim in player_sprites.values():
+        anim.play()
 
-def update_player(player, velocity_x, velocity_y, platforms, gravity, jump_force):
-    on_ground = False
+    platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
+    return {
+        "player": player_sprites,
+        "platform": pygame.transform.scale(platform_image, (150, 150))
+    }
 
-    velocity_y += gravity
+class Player:
+    def __init__(self, x, y, animations):
+        self.animations = animations
+        self.current_anim = animations["idle"]
+        self.rect = pygame.Rect(x, y, 65, 80)
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.gravity = 0.8
+        self.jump_force = -11
+        self.move_speed = 3.5
+        self.on_ground = False
 
-    player.rect.x += velocity_x
-    player.rect.y += velocity_y
+    def switch_animation(self, state):
+        """Переключает анимацию"""
+        if self.current_anim != self.animations[state]:
+            self.current_anim = self.animations[state]
+            self.current_anim.play()
 
-    if player.rect.x < 0:
-        player.rect.x = 0
-    elif player.rect.x + player.rect.width > 800:
-        player.rect.x = 800 - player.rect.width
+    def update(self, platforms):
+        prev_y = self.rect.y
+        self.velocity_y += self.gravity
 
-    for platform in platforms:
-        if player.rect.colliderect(platform) and velocity_y > 0:
-            player.rect.y = platform.y - player.rect.height
-            velocity_y = 0
-            on_ground = True
+        self.rect.x += self.velocity_x
+        for platform in platforms:
+            if self.rect.colliderect(platform):
+                if self.velocity_x > 0:
+                    self.rect.right = platform.left
+                elif self.velocity_x < 0:
+                    self.rect.left = platform.right
 
-    return velocity_y, on_ground
+        self.rect.y += self.velocity_y
+        self.on_ground = False
+        for platform in platforms:
+            if self.rect.colliderect(platform):
+                if prev_y + self.rect.height <= platform.y:
+                    self.rect.y = platform.y - self.rect.height
+                    self.velocity_y = 0
+                    self.on_ground = True
 
-
-def draw_objects(screen, resources, player, platforms):
-    screen.fill((255, 255, 255))
-    screen.blit(resources["a"], (0,0))
-    for platform in platforms:
-        screen.blit(resources["platform"], (platform.x, platform.y))
-    screen.blit(player.image, player.rect.topleft)
-    pygame.display.flip()
-
+    def draw(self, screen):
+        self.current_anim.blit(screen, self.rect.center)
 
 def game_loop(screen, resources):
     clock = pygame.time.Clock()
     FPS = 60
 
-    player = resources["player"]
+    player = Player(48, 48, resources["player"])
     platforms = [
-        pygame.Rect(50, 550, 150, 150),
-        pygame.Rect(200, 400, 150, 150),
-        pygame.Rect(400, 300, 150, 150)
+        pygame.Rect(300, 550, 100, 150),
+        pygame.Rect(430, 500, 100, 150),
+        pygame.Rect(100, 550, 100, 150),
+        pygame.Rect(200, 480, 100, 150)
     ]
-
-    gravity = 0.8
-    jump_force = -11
-    velocity_x = 0
-    velocity_y = 0
-    move_speed = 3
-    on_ground = False
 
     running = True
     while running:
+        screen.fill((255, 255, 255))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            velocity_x = -move_speed
-        elif keys[pygame.K_RIGHT]:
-            velocity_x = move_speed
+        if keys[pygame.K_a]:
+            player.velocity_x = -player.move_speed
+            if not player.on_ground:
+                player.switch_animation("jump_left")
+            else:
+                player.switch_animation("run_left")
+        elif keys[pygame.K_d]:
+            player.velocity_x = player.move_speed
+            if not player.on_ground:
+                player.switch_animation("jump_right")
+            else:
+                player.switch_animation("run_right")
+        elif not player.on_ground:
+            player.switch_animation("jump_right")
         else:
-            velocity_x = 0
+            player.velocity_x = 0
+            player.switch_animation("idle")
 
-        if keys[pygame.K_SPACE] and on_ground:
-            velocity_y = jump_force
+        if keys[pygame.K_w] and player.on_ground:
+            player.velocity_y = player.jump_force
 
-        velocity_y, on_ground = update_player(
-            player, velocity_x, velocity_y, platforms, gravity, jump_force
-        )
+        player.update(platforms)
 
-        player.update()
+        for platform in platforms:
+            screen.blit(resources["platform"], (platform.x, platform.y))
 
-        draw_objects(screen, resources, player, platforms)
+        player.draw(screen)
+        pygame.display.flip()
 
         clock.tick(FPS)
-
 
 if __name__ == "__main__":
     screen = init_game()
