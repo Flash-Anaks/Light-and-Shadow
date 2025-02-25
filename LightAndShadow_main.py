@@ -1,7 +1,7 @@
 import pygame
 import pyganim
 
-TIMER = 60
+TILE_SIZE = 51
 
 def load_image(name):
     return pygame.image.load(name).convert_alpha()
@@ -16,6 +16,9 @@ def load_resources():
     idle_sheet = load_image("textures/Idel Animation 48x48.png")
     run_sheet = load_image("textures/Run Animation 48x48.png")
     jump_sheet = load_image("textures/Jump Animation 48x48.png")
+    wall_texture = pygame.image.load("textures/wall.png").convert_alpha()
+    floor_texture = pygame.image.load("textures/floor.png").convert_alpha()
+    corner_texture = pygame.image.load("textures/corner.png").convert_alpha()
 
     def create_animation(sheet, columns, rows, duration=100, flip_x=False):
         """Разрезает спрайт-лист и создаёт анимацию"""
@@ -37,20 +40,26 @@ def load_resources():
         "jump_left": create_animation(jump_sheet, 6, 1, duration=140, flip_x=True)
     }
 
+    # Запускаем анимации сразу, но будем переключать их в коде
     for anim in player_sprites.values():
         anim.play()
 
-    platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
     return {
         "player": player_sprites,
-        "platform": pygame.transform.scale(platform_image, (150, 150))
+        "wall": wall_texture,
+        "floor": floor_texture,
+        "corner": corner_texture
     }
 
-class Player:
+def load_map(filename):
+    with open(filename, 'r') as f:
+        return [list(line.strip()) for line in f]
+
+class ShadowPlayer:
     def __init__(self, x, y, animations):
         self.animations = animations
         self.current_anim = animations["idle"]
-        self.rect = pygame.Rect(x, y, 65, 80)
+        self.rect = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
         self.velocity_x = 0
         self.velocity_y = 0
         self.gravity = 0.8
@@ -64,45 +73,46 @@ class Player:
             self.current_anim = self.animations[state]
             self.current_anim.play()
 
-    def update(self, platforms):
+    def update(self, walls):
         prev_y = self.rect.y
         self.velocity_y += self.gravity
 
         self.rect.x += self.velocity_x
-        for platform in platforms:
-            if self.rect.colliderect(platform):
+        for wall in walls:
+            if self.rect.colliderect(wall):
                 if self.velocity_x > 0:
-                    self.rect.right = platform.left
+                    self.rect.right = wall.left
                 elif self.velocity_x < 0:
-                    self.rect.left = platform.right
+                    self.rect.left = wall.right
 
         self.rect.y += self.velocity_y
         self.on_ground = False
-        for platform in platforms:
-            if self.rect.colliderect(platform):
-                if prev_y + self.rect.height <= platform.y:
-                    self.rect.y = platform.y - self.rect.height
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if prev_y + self.rect.height <= wall.y:
+                    self.rect.y = wall.y - self.rect.height
                     self.velocity_y = 0
                     self.on_ground = True
 
     def draw(self, screen):
         self.current_anim.blit(screen, self.rect.center)
 
-def game_loop(screen, resources):
+def game_loop(screen, resources, level_map):
     clock = pygame.time.Clock()
     FPS = 60
+    walls = []
+    #player = ShadowPlayer(48, 48, resources["player"])
+    player = None
 
-    player = Player(48, 48, resources["player"])
-    platforms = [
-        pygame.Rect(300, 550, 100, 150),
-        pygame.Rect(430, 500, 100, 150),
-        pygame.Rect(100, 550, 100, 150),
-        pygame.Rect(200, 480, 100, 150)
-    ]
-
+    for y, row in enumerate(level_map):
+        for x, tile in enumerate(row):
+            if tile == '/' or tile == '\\' or tile == '_' or tile == 'q' or tile == 'w' or tile == 'e' or tile == 'r' or tile == '-':
+                walls.append(pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+            elif tile == '@':
+                player = ShadowPlayer(x * TILE_SIZE, y * TILE_SIZE, resources["player"])
     running = True
     while running:
-        screen.fill((255, 255, 255))
+        screen.fill((60, 60, 60))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -130,10 +140,27 @@ def game_loop(screen, resources):
         if keys[pygame.K_w] and player.on_ground:
             player.velocity_y = player.jump_force
 
-        player.update(platforms)
+        player.update(walls)
 
-        for platform in platforms:
-            screen.blit(resources["platform"], (platform.x, platform.y))
+        for y, row in enumerate(level_map):
+            for x, tile in enumerate(row):
+                if tile == '/':
+                    screen.blit(resources["wall"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '\\':
+                    screen.blit(pygame.transform.flip(resources["wall"], True, False), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '_':
+                    screen.blit(resources["floor"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'e':
+                    screen.blit(resources["corner"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'r':
+                    screen.blit(pygame.transform.flip(resources["corner"], True, False), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'w':
+                    screen.blit(pygame.transform.flip(resources["corner"], True, True), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'q':
+                    screen.blit(pygame.transform.flip(resources["corner"], False, True), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '-':
+                    screen.blit(pygame.transform.flip(resources["floor"], False, True), (x * TILE_SIZE, y * TILE_SIZE))
+
 
         player.draw(screen)
         pygame.display.flip()
@@ -143,5 +170,6 @@ def game_loop(screen, resources):
 if __name__ == "__main__":
     screen = init_game()
     resources = load_resources()
-    game_loop(screen, resources)
+    level_map = load_map("map.txt")
+    game_loop(screen, resources, level_map)
     pygame.quit()
