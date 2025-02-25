@@ -1,8 +1,9 @@
 import pygame
 import sys
 import os
+import subprocess
 
-FPS = 50
+FPS = 60
 pygame.init()
 
 def terminate():
@@ -19,16 +20,20 @@ def load_image(name, colorkey=None):
     return image
 
 def start_screen():
+    pygame.display.set_caption("Light and Shadow")
     fon = pygame.transform.scale(load_image('zastavka.jpg'), (650, 650))
     screen.blit(fon, (0, 0))
-
+    button_rect = pygame.Rect(195, 250, 275, 150)
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if button_rect.collidepoint(event.pos):
+                    subprocess.Popen(['python', 'LightAndShadow_main.py'], creationflags=subprocess.CREATE_NO_WINDOW)
+
+                    return pygame.quit()
+
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -37,3 +42,4 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode((650, 650))
     clock = pygame.time.Clock()
     start_screen()
+    pygame.quit()
