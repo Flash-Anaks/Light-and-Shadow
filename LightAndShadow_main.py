@@ -1,32 +1,10 @@
 import pygame
+import pyganim
 
-
-class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
-        super().__init__()
-        self.frames = []
-        self.cut_sheet(sheet, columns, rows)
-        self.cur_frame = 0
-        self.image = self.frames[self.cur_frame]
-        self.rect = self.image.get_rect(topleft=(x, y))
-
-    def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
-
-    def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
-
+TILE_SIZE = 51
 
 def load_image(name):
     return pygame.image.load(name).convert_alpha()
-
 
 def init_game():
     pygame.init()
@@ -34,97 +12,188 @@ def init_game():
     pygame.display.set_caption("Light and Shadow")
     return screen
 
-
 def load_resources():
-    sprite_sheet = load_image("textures/Idel Animation 48x48.png")
-    player_sprite = AnimatedSprite(sprite_sheet, 10, 1, 48, 48)
-    a = platform_image = pygame.image.load("textures/texture_1.png").convert_alpha()
-    return {
-        "player": player_sprite,
-        "platform": pygame.transform.scale(platform_image, (150, 150)),
-        "a": pygame.transform.scale(a, (650, 650))
+    ShadowIdleAnimation = load_image("textures/Idel Animation 48x48.png")
+    ShadowRunAnimation = load_image("textures/Run Animation 48x48.png")
+    ShadowJumpAnimation = load_image("textures/Jump Animation 48x48.png")
+    LightIdleAnimation = load_image("textures/LightIdleAnimation.png")
+    LightJumpAnimation = load_image("textures/LightJumpAnimation.png")
+    LightRunAnimation = load_image("textures/LightRunAnimation.png")
+    wall_texture = pygame.image.load("textures/wall.png").convert_alpha()
+    floor_texture = pygame.image.load("textures/floor.png").convert_alpha()
+    corner_texture = pygame.image.load("textures/corner.png").convert_alpha()
+
+    def create_animation(sheet, columns, rows, duration=100, flip_x=False):
+        """Разрезает спрайт-лист и создаёт анимацию"""
+        frames = []
+        frame_width = sheet.get_width() // columns
+        frame_height = sheet.get_height() // rows
+        for i in range(columns):
+            frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
+            if flip_x:
+                frame = pygame.transform.flip(frame, True, False)
+            frames.append((frame, duration))
+        return pyganim.PygAnimation(frames)
+
+    shadow_sprites = {
+        "idle": create_animation(ShadowIdleAnimation, 10, 1),
+        "run_right": create_animation(ShadowRunAnimation, 8, 1),
+        "run_left": create_animation(ShadowRunAnimation, 8, 1, flip_x=True),
+        "jump_right": create_animation(ShadowJumpAnimation, 6, 1, duration=140),
+        "jump_left": create_animation(ShadowJumpAnimation, 6, 1, duration=140, flip_x=True)
+    }
+    light_sprites = {
+        "idle": create_animation(LightIdleAnimation, 4, 1),
+        "run_right": create_animation(LightRunAnimation, 4, 1),
+        "run_left": create_animation(LightRunAnimation, 4, 1, flip_x=True),
+        "jump_right": create_animation(LightJumpAnimation, 4, 1, duration=140),
+        "jump_left": create_animation(LightJumpAnimation, 4, 1, duration=140, flip_x=True)
     }
 
+    # Запускаем анимации сразу, но будем переключать их в коде
+    for anim in shadow_sprites.values():
+            anim.play()
 
-def update_player(player, velocity_x, velocity_y, platforms, gravity, jump_force):
-    on_ground = False
+    for anim in light_sprites.values():
+            anim.play()
 
-    velocity_y += gravity
+    return {
+        "shadow": shadow_sprites,
+        "light": light_sprites,
+        "wall": wall_texture,
+        "floor": floor_texture,
+        "corner": corner_texture
+    }
 
-    player.rect.x += velocity_x
-    player.rect.y += velocity_y
+def load_map(filename):
+    with open(filename, 'r') as f:
+        return [list(line.strip()) for line in f]
 
-    if player.rect.x < 0:
-        player.rect.x = 0
-    elif player.rect.x + player.rect.width > 800:
-        player.rect.x = 800 - player.rect.width
+class Player:
+    def __init__(self, x, y, animations, controls):
+        self.animations = animations
+        self.current_anim = animations["idle"]
+        self.rect = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.gravity = 0.8
+        self.jump_force = -11
+        self.move_speed = 3.5
+        self.on_ground = False
+        self.controls = controls
 
-    for platform in platforms:
-        if player.rect.colliderect(platform) and velocity_y > 0:
-            player.rect.y = platform.y - player.rect.height
-            velocity_y = 0
-            on_ground = True
+    def switch_animation(self, state):
+        if self.current_anim != self.animations[state]:
+            self.current_anim = self.animations[state]
+            self.current_anim.play()
 
-    return velocity_y, on_ground
+    def update(self, walls):
+        prev_y = self.rect.y
+        self.velocity_y += self.gravity
 
+        self.rect.x += self.velocity_x
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if self.velocity_x > 0:
+                    self.rect.right = wall.left
+                elif self.velocity_x < 0:
+                    self.rect.left = wall.right
+                self.velocity_x = 0
 
-def draw_objects(screen, resources, player, platforms):
-    screen.fill((255, 255, 255))
-    screen.blit(resources["a"], (0,0))
-    for platform in platforms:
-        screen.blit(resources["platform"], (platform.x, platform.y))
-    screen.blit(player.image, player.rect.topleft)
-    pygame.display.flip()
+        self.rect.y += self.velocity_y
+        self.on_ground = False
+        for wall in walls:
+            if self.rect.colliderect(wall):
+                if prev_y + self.rect.height <= wall.y:
+                    self.rect.bottom = wall.top
+                    self.velocity_y = 0
+                    self.on_ground = True
+                elif prev_y >= wall.bottom:
+                    self.rect.top = wall.bottom
+                    self.velocity_y = 0
 
+    def draw(self, screen):
+        self.current_anim.blit(screen, self.rect.center)
 
-def game_loop(screen, resources):
+def game_loop(screen, resources, level_map):
     clock = pygame.time.Clock()
     FPS = 60
+    walls = []
+    players = []
 
-    player = resources["player"]
-    platforms = [
-        pygame.Rect(50, 550, 150, 150),
-        pygame.Rect(200, 400, 150, 150),
-        pygame.Rect(400, 300, 150, 150)
-    ]
+    for y, row in enumerate(level_map):
+        for x, tile in enumerate(row):
+            if tile == '/' or tile == '\\' or tile == '_' or tile == 'q' or tile == 'w' or tile == 'e' or tile == 'r' or tile == '-':
+                walls.append(pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+            elif tile == '@':
+                players.append(Player(x * TILE_SIZE, y * TILE_SIZE, resources["shadow"],
+                                      {"left": pygame.K_a, "right": pygame.K_d, "jump": pygame.K_w}))
+            elif tile == '*':
+                players.append(Player(x * TILE_SIZE, y * TILE_SIZE, resources["light"],
+                                      {"left": pygame.K_LEFT, "right": pygame.K_RIGHT, "jump": pygame.K_UP}))
 
-    gravity = 0.8
-    jump_force = -11
-    velocity_x = 0
-    velocity_y = 0
-    move_speed = 3
-    on_ground = False
 
     running = True
     while running:
+        screen.fill((60, 60, 60))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            velocity_x = -move_speed
-        elif keys[pygame.K_RIGHT]:
-            velocity_x = move_speed
-        else:
-            velocity_x = 0
+        for player in players:
+            if keys[player.controls["left"]]:
+                player.velocity_x = -player.move_speed
+                if not player.on_ground:
+                    player.switch_animation("jump_left")
+                else:
+                    player.switch_animation("run_left")
+            elif keys[player.controls["right"]]:
+                player.velocity_x = player.move_speed
+                if not player.on_ground:
+                    player.switch_animation("jump_right")
+                else:
+                    player.switch_animation("run_right")
+            elif not player.on_ground:
+                player.switch_animation("jump_right")
+            else:
+                player.velocity_x = 0
+                player.switch_animation("idle")
 
-        if keys[pygame.K_SPACE] and on_ground:
-            velocity_y = jump_force
+            if keys[player.controls["jump"]] and player.on_ground:
+                player.velocity_y = player.jump_force
 
-        velocity_y, on_ground = update_player(
-            player, velocity_x, velocity_y, platforms, gravity, jump_force
-        )
+            player.update(walls)
 
-        player.update()
+        for y, row in enumerate(level_map):
+            for x, tile in enumerate(row):
+                if tile == '/':
+                    screen.blit(resources["wall"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '\\':
+                    screen.blit(pygame.transform.flip(resources["wall"], True, False), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '_':
+                    screen.blit(resources["floor"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'e':
+                    screen.blit(resources["corner"], (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'r':
+                    screen.blit(pygame.transform.flip(resources["corner"], True, False), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'w':
+                    screen.blit(pygame.transform.flip(resources["corner"], True, True), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == 'q':
+                    screen.blit(pygame.transform.flip(resources["corner"], False, True), (x * TILE_SIZE, y * TILE_SIZE))
+                elif tile == '-':
+                    screen.blit(pygame.transform.flip(resources["floor"], False, True), (x * TILE_SIZE, y * TILE_SIZE))
 
-        draw_objects(screen, resources, player, platforms)
+        for player in players:
+            player.draw(screen)
+        pygame.display.flip()
 
         clock.tick(FPS)
-
 
 if __name__ == "__main__":
     screen = init_game()
     resources = load_resources()
-    game_loop(screen, resources)
+    level_map = load_map("map.txt")
+    game_loop(screen, resources, level_map)
     pygame.quit()
