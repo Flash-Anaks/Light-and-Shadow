@@ -14,16 +14,16 @@ def load_image(name, colorkey=None):
     image = pygame.image.load(fullname)
     return image
 
-def fin_screen(time):
+def fin_screen(win, time):
     fon = pygame.transform.scale(load_image('3.png'), (650, 650))
     screen.blit(fon, (0, 0))
-    star = pygame.transform.scale(load_image('star.png'), (60, 50))
-    star_coord = [(300, 150), (250, 200), (350, 200)]
-    for i in range(3):
-        screen.blit(star, (star_coord[i][0], star_coord[i][1]))
+    # star = pygame.transform.scale(load_image('star.png'), (60, 50))
+    # star_coord = [(300, 150), (250, 200), (350, 200)]
+    # for i in range(3):
+    #     screen.blit(star, (star_coord[i][0], star_coord[i][1]))
     font = pygame.font.Font(None, 50)
-    text_coord = [(270, 170), (405, 264), (340, 220), (270, 300)]
-    intro_text = ["Время:", "Заново", "Поздравляю!", time]
+    text_coord = [(200, 220), (280, 170), (405, 264), (340, 220), (570, 500)]
+    intro_text = [f"Выграл {win}", f"Время:    {time}", "Заново", "Поздравлем!", "Выход"]
     for i in range(len(intro_text)):
         string_rendered = font.render(intro_text[i], 1, pygame.Color('black'))
         intro_rect = string_rendered.get_rect()
@@ -31,6 +31,8 @@ def fin_screen(time):
         intro_rect.x = text_coord[i][1]
         screen.blit(string_rendered, intro_rect)
     button_rect = pygame.Rect(260, 390, 130, 70)
+    button_out_rect = pygame.Rect(500, 570, 120, 50)
+
 
     running = True
     while running:
@@ -41,6 +43,8 @@ def fin_screen(time):
                     event.type == pygame.MOUSEBUTTONDOWN:
                 if button_rect.collidepoint(event.pos):
                     print(1)
+                elif button_out_rect.collidepoint(event.pos):
+                    print(2)
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -49,4 +53,4 @@ def fin_screen(time):
 if __name__ == "__main__":
     screen = pygame.display.set_mode((650, 650))
     clock = pygame.time.Clock()
-    fin_screen("11:56")
+    fin_screen("light", "11:56")
