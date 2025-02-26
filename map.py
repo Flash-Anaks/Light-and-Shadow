@@ -27,8 +27,7 @@ class Button():
         self.fillColors = {
             'normal': '#ffffff',
             'hover': '#666666',
-            'pressed': '#333333',
-        }
+            'pressed': '#333333',}
         self.buttonSurface = pygame.Surface((self.width, self.height))
         self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
         self.buttonSurf = pygame.transform.scale(load_image('but.png'), (50, 50))

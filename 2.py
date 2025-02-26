@@ -30,8 +30,6 @@ def fin_screen(time):
         intro_rect.y = text_coord[i][0]
         intro_rect.x = text_coord[i][1]
         screen.blit(string_rendered, intro_rect)
-
-
     button_rect = pygame.Rect(260, 390, 130, 70)
 
     running = True
