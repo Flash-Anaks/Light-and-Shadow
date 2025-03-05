@@ -4,7 +4,7 @@ import pytmx
 import finalw
 import time
 
-TILE_SIZE = 16
+TILE_SIZE = 13
 ORIGINAL_TILE_SIZE = 8
 SCALE_FACTOR = TILE_SIZE // ORIGINAL_TILE_SIZE
 GRAVITY = 0.6
@@ -12,7 +12,8 @@ JUMP_FORCE = -12
 MOVE_SPEED = 4
 
 pygame.init()
-screen = pygame.display.set_mode((1920, 1060))
+# screen = pygame.display.set_mode((1920, 1060))
+screen = pygame.display.set_mode((1560, 800))
 pygame.display.set_caption("Light and Shadow")
 clock = pygame.time.Clock()
 FPS = 60

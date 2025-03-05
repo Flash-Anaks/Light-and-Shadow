@@ -17,16 +17,16 @@ def load_image(name, colorkey=None):
 
 
 def fin_screen(win, time):
-    screen = pygame.display.set_mode((650, 650))  # Создаем экран внутри функции
-    clock = pygame.time.Clock()  # Инициализация времени
+    screen = pygame.display.set_mode((650, 650))
+    clock = pygame.time.Clock()
 
     fon = pygame.transform.scale(load_image('3.png'), (650, 650))
     screen.blit(fon, (0, 0))
-
+    pygame.font.init()
     font = pygame.font.Font(None, 50)
 
     text_coord = [(200, 220), (280, 170), (405, 264), (340, 220), (570, 500)]
-    intro_text = [f"Выграл {win}", f"Время:    {time}", "Заново", "Поздравляем!", "Выход"]
+    intro_text = [f"Выиграл {win}", f"Время:    {int(time)//1}  секунд", "Заново", "Поздравляем!", "Выход"]
     for i in range(len(intro_text)):
         string_rendered = font.render(intro_text[i], 1, pygame.Color('black'))
         intro_rect = string_rendered.get_rect()
@@ -42,9 +42,10 @@ def fin_screen(win, time):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 if button_rect.collidepoint(event.pos):
-                    print(1)
+                    pygame.quit()
+                    return os.system('python LightAndShadow_main.py')
                 elif button_out_rect.collidepoint(event.pos):
                     pygame.quit()
                     os.system('python zastavka.py')
@@ -55,5 +56,5 @@ def fin_screen(win, time):
 
 if __name__ == "__main__":
     win = "Игрок 2"
-    time = "15:45"
+    time = "15"
     fin_screen(win, time)

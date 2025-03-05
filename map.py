@@ -30,7 +30,7 @@ class Button():
             'pressed': '#333333',}
         self.buttonSurface = pygame.Surface((self.width, self.height))
         self.buttonRect = pygame.Rect(self.x, self.y, self.width, self.height)
-        self.buttonSurf = pygame.transform.scale(load_image('but.png'), (50, 50))
+        # self.buttonSurf = pygame.transform.scale(load_image('but.png'), (50, 50))
         objects.append(self)
 
     def process(self):
@@ -45,14 +45,22 @@ class Button():
         else:
             self.alreadyPressed = False
 
-        self.buttonSurface.blit(self.buttonSurf, [
-            self.buttonRect.width / 2 - self.buttonSurf.get_rect().width / 2,
-            self.buttonRect.height / 2 - self.buttonSurf.get_rect().height / 2])
+        self.buttonSurface.blit(self.buttonSurface, [
+            self.buttonRect.width / 2 - self.buttonSurface.get_rect().width / 2,
+            self.buttonRect.height / 2 - self.buttonSurface.get_rect().height / 2])
         screen.blit(self.buttonSurface, self.buttonRect)
 
     def myFunction(self):
         print('Button Pressed')
 
+
+def draw_exit_button(screen):
+    font = pygame.font.SysFont("Arial", 30)
+    text_surface = font.render("Выход", True, (255, 255, 255))  # Белый текст
+    button_rect = pygame.Rect(10, 10, text_surface.get_width() + 10, text_surface.get_height() + 10)  # Прямоугольник под текстом
+    pygame.draw.rect(screen, (0, 0, 0), button_rect)  # Черный фон для кнопки
+    screen.blit(text_surface, (button_rect.x + 5, button_rect.y + 5))  # Рисуем текст на кнопке
+    return button_rect
 
 if __name__ == "__main__":
     screen = pygame.display.set_mode((650, 650))
@@ -63,14 +71,16 @@ if __name__ == "__main__":
     font = pygame.font.SysFont('Arial', 40)
     all_sprites = pygame.sprite.Group()
     a = [[180, 200], [380, 200], [280, 350]]
-    Button(30, 30, 50, 50 )
-    Button(30, 140, 50, 50, True)
-
-    while True:
+    exit_button_rect = draw_exit_button(screen)
+    running = True
+    while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if exit_button_rect.collidepoint(event.pos):
+                    running = False
         for object in objects:
             object.process()
         pygame.display.flip()
