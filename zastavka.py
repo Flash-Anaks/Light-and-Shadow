@@ -1,7 +1,6 @@
 import pygame
 import sys
 import os
-import subprocess
 
 FPS = 60
 pygame.init()
@@ -30,9 +29,8 @@ def start_screen():
                 terminate()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if button_rect.collidepoint(event.pos):
-                    subprocess.Popen(['python', 'LightAndShadow_main.py'], creationflags=subprocess.CREATE_NO_WINDOW)
-
-                    return pygame.quit()
+                    pygame.quit()
+                    return os.system('python LightAndShadow_main.py')
 
         pygame.display.flip()
         clock.tick(FPS)
