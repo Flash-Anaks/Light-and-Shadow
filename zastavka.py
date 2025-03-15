@@ -41,6 +41,8 @@ def show_help_window():
                 terminate()
             if event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.KEYDOWN:
                 waiting = False
+    screen.fill((0, 0, 0))
+    start_screen()
 
 def start_screen():
     pygame.font.init()
